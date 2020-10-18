@@ -160,7 +160,7 @@
         }
 
         var searchCriteria = getAppMain().getRootViewController().getPresentedViewController().getCurrentViewController().getCurrentController()._viewmodel.searchCriteria;
-         
+
         services.Item.clearTransferMarketCache();
 
         services.Item.searchTransferMarket(searchCriteria, window.currentPage).observe(this, (function (sender, response) {
@@ -214,7 +214,8 @@
                                 window.bids.shift();
                             }
                         }
-                    } else if (bidPrice && currentBid <= priceToBid && priceToBid <= window.futStatistics.coinsNumber && !window.bids.includes(auction.tradeId) && --maxPurchases >= 0) {
+                    } else if ((bidPrice && currentBid <= priceToBid && priceToBid <= window.futStatistics.coinsNumber && !window.bids.includes(auction.tradeId) && --maxPurchases >= 0)
+                              && (!window.lastMinuteEnabled || (window.lastMinuteEnabled && auction.expires < 60))) {
 
                         writeToDebugLog('Bid Price :' + bidPrice);
                         buyPlayer(player, priceToBid);
@@ -242,7 +243,7 @@
 
             let activeItems = response.data.items.filter(function (item) {
                 return item._auction && item._auction._tradeState === "active";
-            }); 
+            });
 
             services.Item.refreshAuctions(activeItems).observe(this, function (t, refreshResponse) {
                 services.Item.requestWatchedItems().observe(this, function (t, watchResponse) {
@@ -250,7 +251,7 @@
 
                         let outBidItems = watchResponse.data.items.filter(function (item) {
                             return item._auction._bidState === "outbid" && item._auction._tradeState === "active";
-                        });                        
+                        });
 
                         for (var i = 0; i < outBidItems.length; i++) {
 
