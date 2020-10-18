@@ -25,6 +25,7 @@
     window.defaultStopTime = 10;
     window.currentPage = 1;
     window.reListEnabled = true;
+    window.lastMinuteEnabled = true;
 
     window.activateAutoBuyer = function (isStart) {
         if (window.autoBuyerActive) {
@@ -345,6 +346,13 @@
                         '   </div>' +
                         '</div>' +
                         '<div style="padding-top : 20px" class="ut-toggle-cell-view">' +
+                            '<span class="ut-toggle-cell-view--label">Only Last Minute</span>' +
+                            '<div id="last_minulte_toggle" class="ut-toggle-control toggled">' +
+                                '<div class="ut-toggle-control--track">' +
+                                '</div>' +
+                                '<div class= "ut-toggle-control--grip" >' +
+                                 '</div>' +
+                            '</div>' +
                             '<span class="ut-toggle-cell-view--label">Relist Unsold Items</span>' +
                             '<div id="ab_sell_toggle" class="ut-toggle-control toggled">' +
                                 '<div class="ut-toggle-control--track">' +
@@ -376,8 +384,20 @@
             jQuery("#ab_sell_toggle").addClass("toggled");
         }
     }
+    
+    window.toggleLastMinute = function () {
+        if (window.lastMinuteEnabled) {
+            window.lastMinuteEnabled = false;
+            jQuery("#last_minulte_toggle").removeClass("toggled");
+        } else {
+            window.lastMinuteEnabled = true;
+            jQuery("#last_minulte_toggle").addClass("toggled");
+        }
+    }
 
     jQuery(document).on('click', '#ab_sell_toggle', toggleRelist);
+    
+    jQuery(document).on('click', '#last_minulte_toggle', toggleLastMinute);
 
     jQuery(document).on('keyup', '#ab_sell_price', function () {
         jQuery('#sell_after_tax').html((jQuery('#ab_sell_price').val() - ((parseInt(jQuery('#ab_sell_price').val()) / 100) * 5)).toLocaleString());
