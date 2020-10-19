@@ -1,8 +1,9 @@
+
 // ==UserScript==
-// @name         FUT 21 Autobuyer Menu with TamperMonkey
+// @name         FUT 21 Autobuyer with TamperMonkey
 // @namespace    http://tampermonkey.net/
 // @version      0.7
-// @updateURL    https://github.com/chithakumar13/Fifa-AutoBuyer/blob/master/autobuyermenu.js
+// @updateURL    https://github.com/chithakumar13/Fifa-AutoBuyer/blob/master/autobuyer.js
 // @description  FUT Snipping Tool
 // @author       CK Algos
 // @match        https://www.ea.com/*/fifa/ultimate-team/web-app/*
@@ -12,474 +13,390 @@
 
 (function () {
     'use strict';
-
-    window.UTAutoBuyerViewController = function () {
-        UTMarketSearchFiltersViewController.call(this);
-        this._jsClassName = "UTAutoBuyerViewController";
-    }
-
-    window.sellList = [];
-    window.autoBuyerActive = false;
-    window.botStartTime = null;
-    window.searchCountBeforePause = 10;
-    window.defaultStopTime = 10;
-    window.currentPage = 1;
-    window.reListEnabled = true;
-    window.lastMinuteEnabled = true;
-
-    window.activateAutoBuyer = function (isStart) {
-        if (window.autoBuyerActive) {
-            return;
-        }
-         
-        window.botStartTime = new Date();
-        window.searchCountBeforePause = 10;
-        window.currentPage = 1; 
-        if ($('#ab_cycle_amount').val() !== '') {
-            window.searchCountBeforePause = parseInt($('#ab_cycle_amount').val());
-        }
-        window.defaultStopTime = window.searchCountBeforePause;
-        window.autoBuyerActive = true;
-        window.notify((isStart) ? 'Autobuyer Started' : 'Autobuyer Resumed');
-    }
-
-    window.deactivateAutoBuyer = function (isStopped) {
-        if (!window.autoBuyerActive) {
-            return;
-        }
-
-        window.autoBuyerActive = false;
-        window.botStartTime = null; 
-        window.searchCountBeforePause = 10;
-        window.currentPage = 1;
-        window.defaultStopTime = window.searchCountBeforePause;
-        window.notify((isStopped) ? 'Autobuyer Stopped' : 'Autobuyer Paused');
-    }
-
-    utils.JS.inherits(UTAutoBuyerViewController, UTMarketSearchFiltersViewController)
-    window.UTAutoBuyerViewController.prototype.init = function init() {
-        if (!this.initialized) {
-            //getAppMain().superclass(),
-            this._viewmodel || (this._viewmodel = new viewmodels.BucketedItemSearch),
-                this._viewmodel.searchCriteria.type === enums.SearchType.ANY && (this._viewmodel.searchCriteria.type = enums.SearchType.PLAYER);
-            var t = gConfigurationModel.getConfigObject(models.ConfigurationModel.KEY_ITEMS_PER_PAGE)
-                , count = 1 + (utils.JS.isValid(t) ? t[models.ConfigurationModel.ITEMS_PER_PAGE.TRANSFER_MARKET] : 15);
-            this._viewmodel.searchCriteria.count = count,
-                this._viewmodel.searchFeature = enums.ItemSearchFeature.MARKET;
-            var view = this.getView();
-            view.addTarget(this, this._eResetSelected, UTMarketSearchFiltersView.Event.RESET),
-                view.addTarget(this, window.activateAutoBuyer, UTMarketSearchFiltersView.Event.SEARCH),
-                view.addTarget(this, this._eFilterChanged, UTMarketSearchFiltersView.Event.FILTER_CHANGE),
-                view.addTarget(this, this._eMinBidPriceChanged, UTMarketSearchFiltersView.Event.MIN_BID_PRICE_CHANGE),
-                view.addTarget(this, this._eMaxBidPriceChanged, UTMarketSearchFiltersView.Event.MAX_BID_PRICE_CHANGE),
-                view.addTarget(this, this._eMinBuyPriceChanged, UTMarketSearchFiltersView.Event.MIN_BUY_PRICE_CHANGE),
-                view.addTarget(this, this._eMaxBuyPriceChanged, UTMarketSearchFiltersView.Event.MAX_BUY_PRICE_CHANGE),
-                this._viewmodel.getCategoryTabVisible() && (view.initTabMenuComponent(),
-                    view.getTabMenuComponent().addTarget(this, this._eSearchCategoryChanged, enums.Event.TAP)),
-                this._squadContext ? isPhone() || view.addClass("narrow") : view.addClass("floating"),
-                view.getPlayerNameSearch().addTarget(this, this._ePlayerNameChanged, enums.Event.CHANGE),
-                view.__root.style = "width: 50%; float: left;";
-        }
+    window.getMaxSearchBid = function (min, max) {
+        return Math.round((Math.random() * (max - min) + min) / 1000) * 1000;
     };
 
-    function addTabItem() {
-        if (services.Localization && jQuery('h1.title').html() === services.Localization.localize("navbar.label.home")) {
-            getAppMain().getRootViewController().showGameView = function showGameView() {
-                if (this._presentedViewController instanceof UTGameTabBarController)
-                    return !1;
-                var t, i = new UTGameTabBarController,
-                    s = new UTGameFlowNavigationController,
-                    o = new UTGameFlowNavigationController,
-                    l = new UTGameFlowNavigationController,
-                    u = new UTGameFlowNavigationController,
-                    h = new UTGameFlowNavigationController,
-                    st = new UTGameFlowNavigationController,
-                    p = new UTTabBarItemView,
-                    _ = new UTTabBarItemView,
-                    g = new UTTabBarItemView,
-                    m = new UTTabBarItemView,
-                    ST = new UTTabBarItemView,
-                    S = new UTTabBarItemView;
-                if (s.initWithRootController(new UTHomeHubViewController),
-                    o.initWithRootController(new UTSquadsHubViewController),
-                    l.initWithRootController(new UTTransfersHubViewController),
-                    u.initWithRootController(new UTStoreViewController),
-                    h.initWithRootController(new UTClubHubViewController),
-                    st.initWithRootController(new UTCustomizeHubViewController),
-                    p.init(),
-                    p.setTag(UTGameTabBarController.TabTag.HOME),
-                    p.setText(services.Localization.localize("navbar.label.home")),
-                    p.addClass("icon-home"),
-                    _.init(),
-                    _.setTag(UTGameTabBarController.TabTag.SQUADS),
-                    _.setText(services.Localization.localize("nav.label.squads")),
-                    _.addClass("icon-squad"),
-                    g.init(),
-                    g.setTag(UTGameTabBarController.TabTag.TRANSFERS),
-                    g.setText(services.Localization.localize("nav.label.trading")),
-                    g.addClass("icon-transfer"),
-                    m.init(),
-                    m.setTag(UTGameTabBarController.TabTag.STORE),
-                    m.setText(services.Localization.localize("navbar.label.store")),
-                    m.addClass("icon-store"),
-                    S.init(),
-                    S.setTag(UTGameTabBarController.TabTag.CLUB),
-                    S.setText(services.Localization.localize("nav.label.club")),
-                    S.addClass("icon-club"),
-                    ST.init(),
-                    ST.setTag(UTGameTabBarController.TabTag.STADIUM),
-                    ST.setText(services.Localization.localize("navbar.label.customizeHub")),
-                    ST.addClass("icon-stadium"),
-                    s.tabBarItem = p,
-                    o.tabBarItem = _,
-                    l.tabBarItem = g,
-                    u.tabBarItem = m,
-                    h.tabBarItem = S,
-                    st.tabBarItem = ST,
-                    t = [s, o, l, u,st,h],
-                    !isPhone()) {
-                    var C = new UTGameFlowNavigationController,
-                        T = new UTGameFlowNavigationController,
-                        AB = new UTGameFlowNavigationController, //added row
-                        v = new UTGameFlowNavigationController;
-                    C.initWithRootController(new UTSBCHubViewController),
-                        T.initWithRootController(new UTLeaderboardsHubViewController),
-                        AB.initWithRootController(new UTAutoBuyerViewController), //added line
-                        v.initWithRootController(new UTAppSettingsViewController);
-                    var L = new UTTabBarItemView;
-                    L.init(),
-                        L.setTag(UTGameTabBarController.TabTag.SBC),
-                        L.setText(services.Localization.localize("nav.label.sbc")),
-                        L.addClass("icon-sbc");
-                    var I = new UTTabBarItemView;
-                    I.init(),
-                        I.setTag(UTGameTabBarController.TabTag.LEADERBOARDS),
-                        I.setText(services.Localization.localize("nav.label.leaderboards")),
-                        I.addClass("icon-leaderboards");
-
-                    //added section
-                    var AutoBuyerTab = new UTTabBarItemView;
-                    AutoBuyerTab.init(),
-                        AutoBuyerTab.setTag(8),
-                        AutoBuyerTab.setText('AutoBuyer'),
-                        AutoBuyerTab.addClass("icon-transfer");
-
-                    var P = new UTTabBarItemView;
-                    P.init(),
-                        P.setTag(UTGameTabBarController.TabTag.SETTINGS),
-                        P.setText(services.Localization.localize("button.settings")),
-                        P.addClass("icon-settings"),
-                        C.tabBarItem = L,
-                        T.tabBarItem = I,
-                        v.tabBarItem = P,
-                        AB.tabBarItem = AutoBuyerTab, //added line
-                        t = t.concat([C, T, v, AB]) //added line
-                }
-                return i.initWithViewControllers(t),
-                    i.getView().addClass("game-navigation"),
-                    this.presentViewController(i, !0, function () {
-                        services.URL.hasDeepLinkURL() && services.URL.processDeepLinkURL()
-                    }),
-                    !0
-            };
-
-            getAppMain().getRootViewController().showGameView();
-        } else {
-            window.setTimeout(addTabItem, 1000);
-        }
-    };
-
-    function createAutoBuyerInterface() {
-        if (services.Localization && jQuery('h1.title').html() === services.Localization.localize("navbar.label.home")) {
-            window.hasLoadedAll = true;
-        }
-
-        if (window.hasLoadedAll && getAppMain().getRootViewController().getPresentedViewController().getCurrentViewController().getCurrentController()._jsClassName) {
-            if (!jQuery('.SearchWrapper').length) {
-                var view = getAppMain().getRootViewController().getPresentedViewController().getCurrentViewController().getCurrentController()._view;
-                jQuery(view.__root.parentElement).prepend(
-                    '<div id="InfoWrapper" class="ut-navigation-bar-view navbar-style-landscape">' +
-                    '   <h1 class="title">AUTOBUYER STATUS: <span id="ab_status"></span> | REQUEST COUNT: <span id="ab_request_count">0</span></h1>' +
-                    '   <div class="view-navbar-clubinfo">' +
-                    '       <div class="view-navbar-clubinfo-data">' +
-                    '           <div class="view-navbar-clubinfo-name">' +
-                    '               <div style="float: left;">Search:</div>' +
-                    '               <div style="float: right; height: 10px; width: 100px; background: #888; margin: 5px 0px 5px 5px;">' +
-                    '                   <div id="ab_search_progress" style="background: #000; height: 10px; width: 0%"></div>' +
-                    '               </div>' +
-                    '           </div>' +
-                    '           <div class="view-navbar-clubinfo-name">' +
-                    '               <div style="float: left;">Statistics:</div>' +
-                    '               <div style="float: right; height: 10px; width: 100px; background: #888; margin: 5px 0px 5px 5px;">' +
-                    '                   <div id="ab_statistics_progress" style="background: #000; height: 10px; width: 0%"></div>' +
-                    '               </div>' +
-                    '           </div>' +
-                    '       </div>' +
-                    '   </div>' +
-                    '   <div class="view-navbar-currency" style="margin-left: 10px;">' +
-                    '       <div class="view-navbar-currency-coins" id="ab_coins"></div>' +
-                    '   </div>' +
-                    '   <div class="view-navbar-clubinfo">' +
-                    '       <div class="view-navbar-clubinfo-data">' +
-                    '           <span class="view-navbar-clubinfo-name">Sold Items: <span id="ab-sold-items"></span></span>' +
-                    '           <span class="view-navbar-clubinfo-name">Unsold Items: <span id="ab-unsold-items"></span></span>' +
-                    '       </div>' +
-                    '   </div>' +
-                    '   <div class="view-navbar-clubinfo" style="border: none;">' +
-                    '       <div class="view-navbar-clubinfo-data">' +
-                    '           <span class="view-navbar-clubinfo-name">Available Items: <span id="ab-available-items"></span></span>' +
-                    '           <span class="view-navbar-clubinfo-name">Active transfers: <span id="ab-active-transfers"></span></span>' +
-                    '       </div>' +
-                    '   </div>' +
-                    '</div>'
-                );
-
-                jQuery(view.__root.parentElement).append('<div id="SearchWrapper" style="width: 50%; right: 50%"><textarea readonly id="progressAutobuyer" style="font-size: 15px; width: 100%;height: 58%;"></textarea><label>Search Results:</label><br/><textarea readonly id="autoBuyerFoundLog" style="font-size: 10px; width: 100%;height: 26%;"></textarea></div>');
-
-                writeToLog('Autobuyer Ready');
-            }
-
-            if (jQuery('.search-prices').first().length) {
-                if (!jQuery('#ab_buy_price').length) {
-                    jQuery('.search-prices').first().append(
-                        '<div class="search-price-header">' +
-                        '   <h1 class="secondary">AB Settings:</h1>' +
-                        '</div>' +
-                        '<div class="price-filter">' +
-                        '   <div class="info">' +
-                        '       <span class="secondary label">Sell Price:</span><br/><small>Recieve After Tax: <span id="sell_after_tax">0</span></small>' +
-                        '   </div>' +
-                        '   <div class="buttonInfo">' +
-                        '       <div class="inputBox">' +
-                        '           <input type="tel" class="numericInput" id="ab_sell_price" placeholder="7000">' +
-                        '       </div>' +
-                        '   </div>' +
-                        '</div>' +
-                        '<div class="price-filter">' +
-                        '   <div class="info">' +
-                        '       <span class="secondary label">Buy Price:</span>' +
-                        '   </div>' +
-                        '   <div class="buttonInfo">' +
-                        '       <div class="inputBox">' +
-                        '           <input type="tel" class="numericInput" id="ab_buy_price" placeholder="5000">' +
-                        '       </div>' +
-                        '   </div>' +
-                        '</div>' +
-                        '<div class="price-filter">' +
-                        '   <div class="info">' +
-                        '       <span class="secondary label">Bid Price:</span>' +
-                        '   </div>' +
-                        '   <div class="buttonInfo">' +
-                        '       <div class="inputBox">' +
-                        '           <input type="tel" class="numericInput" id="ab_max_bid_price" placeholder="5000">' +
-                        '       </div>' +
-                        '   </div>' +
-                        '</div>' +
-                        '<div class="price-filter">' +
-                        '   <div class="info">' +
-                        '       <span class="secondary label">Wait Time:<br/><small>(random second range eg. 7-15)</small>:</span>' +
-                        '   </div>' +
-                        '   <div class="buttonInfo">' +
-                        '       <div class="inputBox">' +
-                        '           <input type="tel" class="numericInput" id="ab_wait_time" placeholder="7-15">' +
-                        '       </div>' +
-                        '   </div>' +
-                        '</div>' +
-                        '<div class="price-filter">' +
-                        '   <div class="info">' +
-                        '       <span class="secondary label">Min clear count:<br/><small>(clear sold items if count is not less than)</small>:</span>' +
-                        '   </div>' +
-                        '   <div class="buttonInfo">' +
-                        '       <div class="inputBox">' +
-                        '           <input type="tel" class="numericInput" id="ab_min_delete_count" placeholder="10">' +
-                        '       </div>' +
-                        '   </div>' +
-                        '</div>' +
-                        '<div class="price-filter">' +
-                        '   <div class="info">' +
-                        '       <span class="secondary label">Max purchases per search request:</span>' +
-                        '   </div>' +
-                        '   <div class="buttonInfo">' +
-                        '       <div class="inputBox">' +
-                        '           <input type="text" class="numericInput" id="ab_max_purchases" placeholder="3">' +
-                        '       </div>' +
-                        '   </div>' +
-                        '</div>' +
-                        '<div class="price-filter">' +
-                        '   <div class="info">' +
-                        '       <span class="secondary label">Stop After:<br/><small>(S for seconds, M for Minutes, H for hours)</small>:</span>' +
-                        '   </div>' +
-                        '   <div class="buttonInfo">' +
-                        '       <div class="inputBox">' +
-                        '           <input type="text" class="numericInput" id="ab_stop_after" placeholder="1H">' +
-                        '       </div>' +
-                        '   </div>' +
-                        '</div>' +
-                        '<div class="price-filter">' +
-                        '   <div class="info">' +
-                        '       <span class="secondary label">Concurrent Search Request:</span>' +
-                        '   </div>' +
-                        '   <div class="buttonInfo">' +
-                        '       <div class="inputBox">' +
-                        '           <input type="text" class="numericInput" id="ab_con_request" placeholder="1">' +
-                        '       </div>' +
-                        '   </div>' +
-                        '</div>' +
-                        '<div class="price-filter">' +
-                        '   <div class="info">' +
-                        '       <span class="secondary label">Pause For:<br/><small>(S for seconds, M for Minutes, H for hours)</small>:</span>' +
-                        '   </div>' +
-                        '   <div class="buttonInfo">' +
-                        '       <div class="inputBox">' +
-                        '           <input type="text" class="numericInput" id="ab_pause_for" placeholder="0S">' +
-                        '       </div>' +
-                        '   </div>' +
-                        '</div>' +
-                        '<div class="price-filter">' +
-                        '   <div class="info">' +
-                        '       <span class="secondary label">Cycle Amount:<br/><small>(Number of searches performed before triggerring Pause)</small>:</span>' +
-                        '   </div>' +
-                        '   <div class="buttonInfo">' +
-                        '       <div class="inputBox">' +
-                        '           <input type="text" class="numericInput" id="ab_cycle_amount" placeholder="10">' +
-                        '       </div>' +
-                        '   </div>' +
-                        '</div>' +
-                        '<div style="padding-top : 20px" class="ut-toggle-cell-view">' +
-                            '<span class="ut-toggle-cell-view--label">Only Last Minute</span>' +
-                            '<div id="last_minulte_toggle" class="ut-toggle-control toggled">' +
-                                '<div class="ut-toggle-control--track">' +
-                                '</div>' +
-                                '<div class= "ut-toggle-control--grip" >' +
-                                 '</div>' +
-                            '</div>' +
-                            '<span class="ut-toggle-cell-view--label">Relist Unsold Items</span>' +
-                            '<div id="ab_sell_toggle" class="ut-toggle-control toggled">' +
-                                '<div class="ut-toggle-control--track">' +
-                                '</div>' +
-                                '<div class= "ut-toggle-control--grip" >' +
-                                 '</div>' +
-                            '</div>' +
-                        '</div> '
-                    );
-                }
-            }
-            
-            if (!jQuery('#search_cancel_button').length) {
-                jQuery('#InfoWrapper').next().find('.button-container button').first().after('<button class="btn-standard" id="search_cancel_button">Stop</button>')
-            }
-        } else {
-            window.setTimeout(createAutoBuyerInterface, 1000);
-        }
-    }
-
-    jQuery(document).on('click', '#search_cancel_button', deactivateAutoBuyer);
-
-    window.toggleRelist = function () {
-        if (window.reListEnabled) {
-            window.reListEnabled = false;
-            jQuery("#ab_sell_toggle").removeClass("toggled");
-        } else {
-            window.reListEnabled = true;
-            jQuery("#ab_sell_toggle").addClass("toggled");
-        }
-    }
-    
-    window.toggleLastMinute = function () {
-        if (window.lastMinuteEnabled) {
-            window.lastMinuteEnabled = false;
-            jQuery("#last_minulte_toggle").removeClass("toggled");
-        } else {
-            window.lastMinuteEnabled = true;
-            jQuery("#last_minulte_toggle").addClass("toggled");
-        }
-    }
-
-    jQuery(document).on('click', '#ab_sell_toggle', toggleRelist);
-    
-    jQuery(document).on('click', '#last_minulte_toggle', toggleLastMinute);
-
-    jQuery(document).on('keyup', '#ab_sell_price', function () {
-        jQuery('#sell_after_tax').html((jQuery('#ab_sell_price').val() - ((parseInt(jQuery('#ab_sell_price').val()) / 100) * 5)).toLocaleString());
-    });
-
-    window.updateAutoTransferListStat = function () {
-        if (!window.autoBuyerActive) {
-            return;
-        }
-
-        window.updateTransferList();
-    };
-
-    window.writeToLog = function (message) {
-        var $log = jQuery('#progressAutobuyer');
-        message = "[" + new Date().toLocaleTimeString() + "] " + message + "\n";
-        $log.val($log.val() + message);
-        $log.scrollTop($log[0].scrollHeight);
-    };
-
-    window.writeToDebugLog = function (message) {
-        var $log = jQuery('#autoBuyerFoundLog');
-        message = "[" + new Date().toLocaleTimeString() + "] " + message + "\n";
-        $log.val($log.val() + message);
-        $log.scrollTop($log[0].scrollHeight);
-    };
-
-    window.notify = function (message) {
-        services.Notification.queue([message, enums.UINotificationType.POSITIVE])
-    };
-
-    window.getRandomWait = function () {
-        var addedTime = 0;
-
-        var wait = [7, 15];
-        if (jQuery('#ab_wait_time').val()) {
-            wait = jQuery('#ab_wait_time').val().split('-').map(a => parseInt(a));
-        }
-        window.searchCount++;
-        return (Math.round((Math.random() * (wait[1] - wait[0]) + wait[0])) * 1000);
-    };
-
-    window.getTimerProgress = function (timer) {
-        var time = (new Date()).getTime();
-
-        return (Math.max(0, timer.finish - time) / (timer.finish - timer.start)) * 100;
-    };
-
-    window.updateStatistics = function () {
-        jQuery('#ab_search_progress').css('width', window.getTimerProgress(window.timers.search));
-        jQuery('#ab_statistics_progress').css('width', window.getTimerProgress(window.timers.transferList));
-
-        jQuery('#ab_request_count').html(window.searchCount);
-
-        jQuery('#ab_coins').html(window.futStatistics.coins);
-
-        if (window.autoBuyerActive) {
-            jQuery('#ab_status').css('color', '#2cbe2d').html('RUNNING');
-        } else {
-            jQuery('#ab_status').css('color', 'red').html('IDLE');
-        }
-
-        jQuery('#ab-sold-items').html(window.futStatistics.soldItems);
-        jQuery('#ab-unsold-items').html(window.futStatistics.unsoldItems);
-        jQuery('#ab-available-items').html(window.futStatistics.availableItems);
-        jQuery('#ab-active-transfers').html(window.futStatistics.activeTransfers);
-
-        if (window.futStatistics.unsoldItems) {
-            jQuery('#ab-unsold-items').css('color', 'red');
-        } else {
-            jQuery('#ab-unsold-items').css('color', '');
-        }
-
-        if (window.futStatistics.availableItems) {
-            jQuery('#ab-available-items').css('color', 'orange');
-        } else {
-            jQuery('#ab-available-items').css('color', '');
-        }
-    };
-
-    window.hasLoadedAll = false;
     window.searchCount = 0;
-    createAutoBuyerInterface();
-    addTabItem();
+
+    window.errorCodeLookUp = {
+        '521': 'Server Rejected the request',
+        '512': 'Server Rejected the request',
+        '429': 'Bidding Rejected, too many request received from this user',
+        '426': 'Bidding Rejected, other user won the (card / bid)',
+        '461': 'Bidding Rejected, other user won the (card / bid)',
+    }
+
+    window.initStatisics = function () {
+        window.futStatistics = {
+            soldItems: '-',
+            unsoldItems: '-',
+            activeTransfers: '-',
+            availableItems: '-',
+            coins: '-',
+            coinsNumber: 0
+        };
+
+        window.timers = {
+            search: window.createTimeout(0, 0),
+            coins: window.createTimeout(0, 0),
+            transferList: window.createTimeout(0, 0),
+            bidCheck: window.createTimeout(0, 0),
+            relist: window.createTimeout(0, 0),
+        };
+    };
+
+    window.bids = [];
+    window.sellBids = [];
+
+    window.createTimeout = function (time, interval) {
+        return {
+            start: time,
+            finish: time + interval,
+        };
+    };
+
+    window.processor = window.setInterval(function () {
+        if (window.autoBuyerActive) {
+
+            window.stopIfRequired();
+
+            window.pauseIfRequired();
+
+            var time = (new Date()).getTime();
+
+            if (window.timers.search.finish == 0 || window.timers.search.finish <= time) {
+
+                let searchRequest = 1;
+
+                if ($('#ab_con_request').val() !== '') {
+                    searchRequest = $('#ab_con_request').val();
+                }
+
+                while (searchRequest-- > 0) {
+                    window.searchFutMarket(null, null, null);
+                }
+
+                window.timers.search = window.createTimeout(time, window.getRandomWait());
+            }
+
+            if (window.timers.coins.finish == 0 || window.timers.coins.finish <= time) {
+                window.futStatistics.coins = services.User.getUser().coins.amount.toLocaleString();
+                window.futStatistics.coinsNumber = services.User.getUser().coins.amount;
+                window.timers.coins = window.createTimeout(time, 2500);
+            }
+
+            if (window.timers.transferList.finish == 0 || window.timers.transferList.finish <= time) {
+                window.updateTransferList();
+
+                window.timers.transferList = window.createTimeout(time, 30000);
+            }
+
+            if (window.timers.bidCheck.finish == 0 || window.timers.bidCheck.finish <= time) {
+                window.watchBidItems();
+
+                window.timers.bidCheck = window.createTimeout(time, 20000);
+            }
+            if (window.reListEnabled && (window.timers.relist.finish == 0 || window.timers.relist.finish <= time)) {
+                services.Item.relistExpiredAuctions().observe(this, function (t, response) { });
+                window.timers.relist = window.createTimeout(time, 1800000);
+            }
+        } else {
+            window.initStatisics();
+        }
+
+        window.updateStatistics();
+    }, 500);
+
+    window.stopIfRequired = function () {
+        var stopAfter = "1H";
+        if ($('#ab_stop_after').val()) {
+            stopAfter = $('#ab_stop_after').val();
+        }
+        let interval = stopAfter[stopAfter.length - 1].toUpperCase();
+        let time = parseInt(stopAfter.substring(0, stopAfter.length - 1));
+
+        let multipler = (interval === "M") ? 60 : ((interval === "H") ? 3600 : 1)
+        if (time) {
+            time = time * multipler;
+
+            let currentTime = new Date();
+
+            let timeElapsed = (currentTime.getTime() - window.botStartTime.getTime()) / 1000;
+
+            if (timeElapsed >= time) {
+                window.deactivateAutoBuyer(true);
+            }
+        }
+    }
+
+    window.pauseIfRequired = function () {
+        if (window.searchCountBeforePause <= 0) {
+            var pauseFor = "0S";
+            if ($('#ab_pause_for').val()) {
+                pauseFor = $('#ab_pause_for').val();
+            }
+            let interval = pauseFor[pauseFor.length - 1].toUpperCase();
+            let time = parseInt(pauseFor.substring(0, pauseFor.length - 1));
+
+            let multipler = (interval === "M") ? 60 : ((interval === "H") ? 3600 : 1)
+            if (time) {
+                time = time * multipler * 1000;
+
+                window.deactivateAutoBuyer();
+
+                setTimeout(() => {
+                    window.activateAutoBuyer(false);
+                }, time);
+            } else {
+                window.searchCountBeforePause = window.defaultStopTime;
+            }
+        }
+    }
+
+    window.searchFutMarket = function (sender, event, data) {
+        if (!window.autoBuyerActive) {
+            return;
+        }
+
+        var searchCriteria = getAppMain().getRootViewController().getPresentedViewController().getCurrentViewController().getCurrentController()._viewmodel.searchCriteria;
+
+        services.Item.clearTransferMarketCache();
+
+        services.Item.searchTransferMarket(searchCriteria, window.currentPage).observe(this, (function (sender, response) {
+            if (response.success && window.autoBuyerActive) {
+
+                window.searchCountBeforePause--;
+                writeToDebugLog('Received ' + response.data.items.length + ' items');
+
+                var maxPurchases = 3;
+                if ($('#ab_max_purchases').val() !== '') {
+                    maxPurchases = Math.max(1, parseInt($('#ab_max_purchases').val()));
+                }
+
+                if (window.currentPage <= 20 && response.data.items.length === 21) {
+                    window.currentPage++;
+                } else {
+                    window.currentPage = 1;
+                }
+
+                response.data.items.sort(function (a, b) {
+                    var priceDiff = a._auction.buyNowPrice - b._auction.buyNowPrice;
+
+                    if (priceDiff != 0) {
+                        return priceDiff;
+                    }
+
+                    return a._auction.expires - b._auction.expires;
+                });
+
+                for (var i = 0; i < response.data.items.length; i++) {
+                    let player = response.data.items[i];
+                    let auction = player._auction;
+
+                    let buyNowPrice = auction.buyNowPrice;
+                    let currentBid = auction.currentBid || auction.startingBid;
+                    let isBid = auction.currentBid;
+                    let bidPrice = parseInt(jQuery('#ab_max_bid_price').val());
+                    let priceToBid = (isBid) ? window.getBuyBidPrice(bidPrice) : bidPrice;
+
+                    let expires = services.Localization.localizeAuctionTimeRemaining(auction.expires);
+                    writeToDebugLog(player._staticData.firstName + ' ' + player._staticData.lastName + ' [' + auction.tradeId + '] [' + expires + '] ' + currentBid + '/' + buyNowPrice);
+
+                    if (buyNowPrice <= parseInt(jQuery('#ab_buy_price').val()) && buyNowPrice <= window.futStatistics.coinsNumber && !window.bids.includes(auction.tradeId) && --maxPurchases >= 0) {
+                        writeToDebugLog('Buy Price :' + jQuery('#ab_buy_price').val());
+                        buyPlayer(player, buyNowPrice, true);
+
+                        if (!window.bids.includes(auction.tradeId)) {
+                            window.bids.push(auction.tradeId);
+
+                            if (window.bids.length > 300) {
+                                window.bids.shift();
+                            }
+                        }
+                    } else if ((bidPrice && currentBid <= priceToBid && priceToBid <= window.futStatistics.coinsNumber && !window.bids.includes(auction.tradeId) && --maxPurchases >= 0)
+                              && (!window.lastMinuteEnabled || (window.lastMinuteEnabled && auction.expires < 60))) {
+
+                        writeToDebugLog('Bid Price :' + bidPrice);
+                        buyPlayer(player, priceToBid);
+                        if (!window.bids.includes(auction.tradeId)) {
+                            window.bids.push(auction.tradeId);
+
+                            if (window.bids.length > 300) {
+                                window.bids.shift();
+                            }
+                        }
+                    }
+                };
+            }
+        }));
+    }
+
+    window.watchBidItems = function () {
+
+        services.Item.clearTransferMarketCache();
+
+        services.Item.requestWatchedItems().observe(this, function (t, response) {
+
+            var bidPrice = parseInt(jQuery('#ab_max_bid_price').val());
+            var sellPrice = parseInt(jQuery('#ab_sell_price').val());
+
+            let activeItems = response.data.items.filter(function (item) {
+                return item._auction && item._auction._tradeState === "active";
+            });
+
+            services.Item.refreshAuctions(activeItems).observe(this, function (t, refreshResponse) {
+                services.Item.requestWatchedItems().observe(this, function (t, watchResponse) {
+                    if (bidPrice) {
+
+                        let outBidItems = watchResponse.data.items.filter(function (item) {
+                            return item._auction._bidState === "outbid" && item._auction._tradeState === "active";
+                        });
+
+                        for (var i = 0; i < outBidItems.length; i++) {
+
+                            let player = outBidItems[i];
+                            let auction = player._auction;
+
+                            let isBid = auction.currentBid;
+
+                            let currentBid = auction.currentBid || auction.startingBid;
+
+                            let priceToBid = (isBid) ? window.getSellBidPrice(bidPrice) : bidPrice;
+
+                            let checkPrice = (isBid) ? window.getBuyBidPrice(currentBid) : currentBid;
+
+                            if (currentBid <= priceToBid && checkPrice <= window.futStatistics.coinsNumber) {
+                                writeToDebugLog('Bidding on outbidded item -> Bidding Price :' + checkPrice);
+                                buyPlayer(player, checkPrice);
+                                if (!window.bids.includes(auction.tradeId)) {
+                                    window.bids.push(auction.tradeId);
+
+                                    if (window.bids.length > 300) {
+                                        window.bids.shift();
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (sellPrice && !isNaN(sellPrice)) {
+
+                        let boughtItems = response.data.items.filter(function (item) {
+                            return item.getAuctionData().isWon() && !window.sellBids.includes(item._auction.tradeId);
+                        });
+
+                        for (var i = 0; i < boughtItems.length; i++) {
+                            let player = boughtItems[i];
+                            let auction = player._auction;
+
+                            window.sellBids.push(auction.tradeId);
+
+                            writeToLog(player._staticData.firstName + ' ' + player._staticData.lastName + '[' + player._auction.tradeId + '] -- Selling for: ' + sellPrice);
+
+                            player.clearAuction();
+
+                            window.sellRequestTimeout = window.setTimeout(function () {
+                                services.Item.list(player, window.getSellBidPrice(sellPrice), sellPrice, 3600);
+                            }, window.getRandomWait());
+                        }
+
+                        services.Item.clearTransferMarketCache();
+                    }
+                });
+            });
+        });
+    }
+
+    window.buyPlayer = function (player, price, isBin) {
+        services.Item.bid(player, price).observe(this, (function (sender, data) {
+            if (data.success) {
+                writeToLog(player._staticData.firstName + ' ' + player._staticData.lastName + ' [' + player._auction.tradeId + '] ' + price + ((isBin) ? ' bought' : ' bid successfully'));
+                var sellPrice = parseInt(jQuery('#ab_sell_price').val());
+                if (isBin && sellPrice !== 0 && !isNaN(sellPrice)) {
+                    writeToLog(' -- Selling for: ' + sellPrice);
+                    window.sellRequestTimeout = window.setTimeout(function () {
+                        services.Item.list(player, window.getSellBidPrice(sellPrice), sellPrice, 3600);
+                    }, window.getRandomWait());
+                }
+            } else {
+                writeToLog(player._staticData.firstName + ' ' + player._staticData.lastName + ' [' + player._auction.tradeId + '] ' + price + ((isBin) ? ' buy failed' : ' bid failed') + '\nError Code : ' + data.status + '-' + (errorCodeLookUp[data.status] || ''));
+            }
+        }));
+    }
+
+    window.getSellBidPrice = function (bin) {
+        if (bin <= 1000) {
+            return bin - 50;
+        }
+
+        if (bin > 1000 && bin <= 10000) {
+            return bin - 100;
+        }
+
+        if (bin > 10000 && bin <= 50000) {
+            return bin - 250;
+        }
+
+        if (bin > 50000 && bin <= 100000) {
+            return bin - 500;
+        }
+
+        return bin - 1000;
+    };
+
+    window.getBuyBidPrice = function (bin) {
+        if (bin < 1000) {
+            return bin + 50;
+        }
+
+        if (bin >= 1000 && bin < 10000) {
+            return bin + 100;
+        }
+
+        if (bin >= 10000 && bin < 50000) {
+            return bin + 250;
+        }
+
+        if (bin >= 50000 && bin < 100000) {
+            return bin + 500;
+        }
+
+        return bin + 1000;
+    };
+
+    window.updateTransferList = function () {
+        services.Item.requestTransferItems().observe(this, function (t, response) {
+            let soldItems = response.data.items.filter(function (item) {
+                return item.getAuctionData().isSold();
+            });
+
+            window.futStatistics.soldItems = soldItems.length;
+            window.futStatistics.unsoldItems = response.data.items.filter(function (item) {
+                return !item.getAuctionData().isSold() && item.getAuctionData().isExpired();
+            }).length;
+
+            window.futStatistics.activeTransfers = response.data.items.filter(function (item) {
+                return item.getAuctionData().isSelling();
+            }).length;
+
+            window.futStatistics.availableItems = response.data.items.filter(function (item) {
+                return item.getAuctionData().isInactive();
+            }).length;
+
+            var minSoldCount = 10;
+            if ($('#ab_min_delete_count').val() !== '') {
+                minSoldCount = Math.max(1, parseInt($('#ab_min_delete_count').val()));
+            }
+
+            if (window.futStatistics.soldItems >= minSoldCount) {
+                writeToLog(window.futStatistics.soldItems + " item(s) sold");
+                window.clearSoldItems();
+            }
+        });
+    }
+
+    window.clearSoldItems = function () {
+        services.Item.clearSoldItems().observe(this, function (t, response) { });
+    }
 })();
