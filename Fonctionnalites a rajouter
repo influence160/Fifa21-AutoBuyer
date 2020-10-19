@@ -2,3 +2,4 @@ Bid with min price.
 pause between bids,
 pause for min expires player time in the list + min expires to bid 
 random pause time
+only search in first page ... dont go next page
